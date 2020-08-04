@@ -33,7 +33,8 @@ int expPedal;
 int lastExpPedal;
 byte expState;
 byte lastExpState;
-byte parts; //contains data for 8 parts on electribe
+byte parts; //current mute state for 8 parts on electribe
+byte partsReq; //requested mute state for 8 parts on electribe
 
 int currentBeat;
 bool micLoopStartRequest;
@@ -113,6 +114,7 @@ void setup() {
 
   expState = 'H';
   parts = B11111111;
+  partsReq = B11111111; //parts byte correspons to triggers on drum machine 1 is unmuted, 0 is muted
 }
 
 void loop() {
@@ -144,26 +146,9 @@ void loop() {
     
       if (pulseCount == 0){
         digitalWrite(ledPin, HIGH);
-        
-        expPedal = analogRead(A7);
-                           
-        if(expPedal<120){
-          expState = 'H';//High energy     
-          }
-        else if (expPedal>900){
-          expState = 'L';//Low energy
-          }
-        else {
-          expState = 'M';//Medium energy
-          }
-
-        if (expState != lastExpState){
-          Serial.write(expState);
-          lastExpState = expState;
-          }
-        
+               
         if (micLoopStartRequest && currentBeat == 0){
-          digitalWrite(micLoopStartPin, LOW); //grounding the pin triggers on the Ditto Mic Looper
+          digitalWrite(micLoopStartPin, LOW); //grounding the pin triggers the Ditto Mic Looper
           micLoopStarted = true;
           micLoopStartRequest = false;
         }        
@@ -235,6 +220,24 @@ void loop() {
        if ( micLoopTrigIn2.fell() ){
         //micLoopShortRequest = true;
        }
+
+        expPedal = analogRead(A7);
+        if(expPedal<120){
+          partsReq = B11111111;//High energy     
+          }
+        else if (expPedal>900){
+          partsReq = B00000011;//Low energy
+          }
+        else {
+          partsReq = B00001111;//Medium energy
+          }
+
+        if (parts < partsReq){
+          //unmute
+          }
+        else if (parts > partsReq){
+          //mute
+          }
        
 }
 
@@ -248,3 +251,7 @@ void write2(byte byte1, byte byte2){
   midiSerial.write(byte1);
   midiSerial.write(byte2);
 }
+
+void unmute(
+  
+  ){}

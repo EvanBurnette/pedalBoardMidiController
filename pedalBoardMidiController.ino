@@ -30,11 +30,9 @@ unsigned long firstBeat;
 int pulseCount;
 
 int expPedal;
-int lastExpPedal;
-byte expState;
 byte lastExpState;
-byte parts; //current mute state for 8 parts on electribe
-byte partsReq; //requested mute state for 8 parts on electribe
+byte parts;
+byte lastParts;
 
 int currentBeat;
 bool micLoopStartRequest;
@@ -112,9 +110,8 @@ void setup() {
   micLoopTrigIn2.attach(micLoopTrigPin2, INPUT_PULLUP);
   micLoopTrigIn2.interval(debounceInterval);
 
-  expState = 'H';
   parts = 8;
-  partsReq = 8;
+  lastParts = 8;
 }
 
 void loop() {
@@ -225,26 +222,29 @@ void loop() {
 
         expPedal = analogRead(A7);
         if(expPedal<120){
-          partsReq = 8;//High energy     
+          parts = 8;//High energy     
           }
         else if (expPedal>900){
-          partsReq = 2;//Low energy
+          parts = 2;//Low energy
           }
         else {
-          partsReq = 4;//Medium energy
+          parts = 4;//Medium energy
           }
 
-        if (parts < partsReq){
-          parts++;
-          unmute(parts);
-          //unmute
+        if(parts != lastParts){
+          lastParts = parts;
+          switch(parts){
+            case 2:
+              partsUpdate(0x0E, 0x37);
+              break;
+            case 4:
+              partsUpdate(0x06, 0x36);
+              break;
+            case 8:
+              partsUpdate(0x00, 0x00);
+              break;
           }
-        else if (parts > partsReq){
-          parts--;
-          mute(parts);
-          }
-        else{}
-       
+        }
 }
 
 void write3(byte byte1, byte byte2, byte byte3){
@@ -258,25 +258,11 @@ void write2(byte byte1, byte byte2){
   midiSerial.write(byte2);
 }
 
-void unmute(byte part){
-  switch(part){
-    case 3:
-      write3(0xB9,0x63,0x02);
-      write3(0xB9,0x62,0x6D);
-      write3(0xB9,0x06,0x0F);
-      write3(0xB9,0x63,0x02);
-      write3(0xB9,0x62,0x6E);
-      write3(0xB9,0x06,0x3E);
-      break;
-    case 4:
-      break;
-    case 5:
-      break;
-    case 6:
-      break;
-    case 7:
-      break;
-    case 8:
-      break;
-  }
+void partsUpdate(byte byte1, byte byte2){
+  write3(0xB9, 0x63, 0x02);
+  write3(0xB9, 0x62, 0x6D);
+  write3(0xB9, 0x06, byte1);
+  write3(0xB9, 0x63, 0x02);
+  write3(0xB9, 0x62, 0x6E);
+  write3(0xB9, 0x06, byte2);
 }

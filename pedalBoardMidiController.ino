@@ -113,8 +113,8 @@ void setup() {
   micLoopTrigIn2.interval(debounceInterval);
 
   expState = 'H';
-  parts = B11111111;
-  partsReq = B11111111; //parts byte correspons to triggers on drum machine 1 is unmuted, 0 is muted
+  parts = 8;
+  partsReq = 8;
 }
 
 void loop() {
@@ -193,6 +193,7 @@ void loop() {
         write3(0xB9, 0, 0);
         write3(0xB9, 0x20, bankBit);
         write2(0xC9, patternByte);
+        parts = 8;
         }
       else {}
 
@@ -204,6 +205,7 @@ void loop() {
         write3(0xB9, 0, 0);
         write3(0xB9, 0x20, bankBit);
         write2(0xC9, patternByte);
+        parts = 8;
         }
        undo.update();
        if ( undo.fell() ){
@@ -223,21 +225,25 @@ void loop() {
 
         expPedal = analogRead(A7);
         if(expPedal<120){
-          partsReq = B11111111;//High energy     
+          partsReq = 8;//High energy     
           }
         else if (expPedal>900){
-          partsReq = B00000011;//Low energy
+          partsReq = 2;//Low energy
           }
         else {
-          partsReq = B00001111;//Medium energy
+          partsReq = 4;//Medium energy
           }
 
         if (parts < partsReq){
+          parts++;
+          unmute(parts);
           //unmute
           }
         else if (parts > partsReq){
-          //mute
+          parts--;
+          mute(parts);
           }
+        else{}
        
 }
 
@@ -252,6 +258,25 @@ void write2(byte byte1, byte byte2){
   midiSerial.write(byte2);
 }
 
-void unmute(
-  
-  ){}
+void unmute(byte part){
+  switch(part){
+    case 3:
+      write3(0xB9,0x63,0x02);
+      write3(0xB9,0x62,0x6D);
+      write3(0xB9,0x06,0x0F);
+      write3(0xB9,0x63,0x02);
+      write3(0xB9,0x62,0x6E);
+      write3(0xB9,0x06,0x3E);
+      break;
+    case 4:
+      break;
+    case 5:
+      break;
+    case 6:
+      break;
+    case 7:
+      break;
+    case 8:
+      break;
+  }
+}

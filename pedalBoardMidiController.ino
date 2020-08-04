@@ -11,6 +11,9 @@
 #define undoPin 17
 #define tapPin 18
 
+#define fiveVoltPin 12
+//expression pedal sense pin A7
+
 #define ledPin 13
 
 #define micLoopStartPin 6
@@ -25,6 +28,12 @@ unsigned long beatTime;
 unsigned long pulseTime;
 unsigned long firstBeat;
 int pulseCount;
+
+int expPedal;
+int lastExpPedal;
+byte expState;
+byte lastExpState;
+byte parts; //contains data for 8 parts on electribe
 
 int currentBeat;
 bool micLoopStartRequest;
@@ -66,6 +75,11 @@ void setup() {
   digitalWrite(micLoopStartPin, HIGH);
   digitalWrite(micLoopStopPin, HIGH);
 
+  pinMode(fiveVoltPin, OUTPUT);
+  digitalWrite(fiveVoltPin, HIGH);
+
+  pinMode(A7, INPUT);//A7 = expPedalSensePin
+
   beatTime = 600000;
   pulseTime = beatTime/24;
   pulseCount = 0;
@@ -96,6 +110,9 @@ void setup() {
 
   micLoopTrigIn2.attach(micLoopTrigPin2, INPUT_PULLUP);
   micLoopTrigIn2.interval(debounceInterval);
+
+  expState = 'H';
+  parts = B11111111;
 }
 
 void loop() {
@@ -127,6 +144,24 @@ void loop() {
     
       if (pulseCount == 0){
         digitalWrite(ledPin, HIGH);
+        
+        expPedal = analogRead(A7);
+                           
+        if(expPedal<120){
+          expState = 'H';//High energy     
+          }
+        else if (expPedal>900){
+          expState = 'L';//Low energy
+          }
+        else {
+          expState = 'M';//Medium energy
+          }
+
+        if (expState != lastExpState){
+          Serial.write(expState);
+          lastExpState = expState;
+          }
+        
         if (micLoopStartRequest && currentBeat == 0){
           digitalWrite(micLoopStartPin, LOW); //grounding the pin triggers on the Ditto Mic Looper
           micLoopStarted = true;
@@ -198,9 +233,9 @@ void loop() {
         
        micLoopTrigIn2.update();
        if ( micLoopTrigIn2.fell() ){
-        Serial.write("c");
         //micLoopShortRequest = true;
        }
+       
 }
 
 void write3(byte byte1, byte byte2, byte byte3){

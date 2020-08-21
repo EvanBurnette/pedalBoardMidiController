@@ -2,7 +2,7 @@
 #include <SoftwareSerial.h>
 #include <Bounce2.h>
 
-#define VOLCASAMPLE true; //make this true if you're using the KORG Volca Sample with Pajen unofficial firmware (tested with beta7)
+#define VOLCASAMPLE false; //make this true if you're using the KORG Volca Sample with Pajen unofficial firmware (tested with beta7)
 #define ELECTRIBE true; //make this true if you're using the KORG Electribe ER-1
 
 #define midiIn 4
@@ -11,18 +11,17 @@
 #define backPin 14 
 #define playPin 15
 #define forwardPin 16
-#define undoPin 17
+//#define undoPin 17
 #define tapPin 18
 
 #define fiveVoltPin 12
-//expression pedal sense pin A7
+#define expIn A7
 
 #define ledPin 13
 
-#define micLoopStartPin 6
-#define micLoopStopPin 7
-#define micLoopTrigPin1 9
-#define reversePin 8 //external momentary in
+#define micLoopStartPin 6 //Out to ditto mic looper
+#define micLoopStopPin 7 //Out to ditto mic looper
+#define micLoopTriggerPin 17
 
 unsigned long lastTapFallTime;
 unsigned long tapFallTime;
@@ -55,9 +54,7 @@ Bounce tap = Bounce();
 Bounce play = Bounce();
 Bounce forward = Bounce();
 Bounce back = Bounce();
-Bounce undo = Bounce();
-Bounce micLoopTrigIn1 = Bounce();
-Bounce reverse = Bounce();
+Bounce micLoopTrigIn = Bounce();
 
 bool playing;
 SoftwareSerial midiSerial(midiIn, midiOut);
@@ -80,7 +77,7 @@ void setup() {
   pinMode(fiveVoltPin, OUTPUT);
   digitalWrite(fiveVoltPin, HIGH);
 
-  pinMode(A7, INPUT);//A7 = expPedalSensePin
+  pinMode(expIn, INPUT);//A7 = expPedalSensePin
 
   beatTime = 600000;
   pulseTime = beatTime/24;
@@ -104,14 +101,8 @@ void setup() {
   back.attach(backPin, INPUT_PULLUP);
   back.interval(debounceInterval);
 
-  undo.attach(undoPin, INPUT_PULLUP);
-  undo.interval(debounceInterval);
-
-  micLoopTrigIn1.attach(micLoopTrigPin1, INPUT_PULLUP);
-  micLoopTrigIn1.interval(debounceInterval);
-
-  reverse.attach(reversePin, INPUT_PULLUP);
-  reverse.interval(debounceInterval);
+  micLoopTrigIn.attach(micLoopTriggerPin, INPUT_PULLUP);
+  micLoopTrigIn.interval(debounceInterval);
 
   parts = 8;
   lastParts = 8;
@@ -202,20 +193,10 @@ void loop() {
         patternByte = bankAndPatternByte & 127;
         sendPatternChange(bankBit, patternByte);
         parts = 8; //set drums to high energy
-        }
-       undo.update();
-       if ( undo.fell() ){
-        write3(0xBF, 79, 127);
-        }
-       else {}
+        }else {}
 
-       reverse.update();
-       if (reverse.fell()){
-        write3(0xBF, 78, 127);
-        }
-
-       micLoopTrigIn1.update();
-       if ( micLoopTrigIn1.fell() ){
+       micLoopTrigIn.update();
+       if ( micLoopTrigIn.fell() ){
         micLoopStartRequest = true;
         }
 

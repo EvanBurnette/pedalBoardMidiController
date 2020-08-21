@@ -2,6 +2,9 @@
 #include <SoftwareSerial.h>
 #include <Bounce2.h>
 
+#define VOLCASAMPLE true; //make this true if you're using the KORG Volca Sample with Pajen unofficial firmware (tested with beta7)
+#define ELECTRIBE true; //make this true if you're using the KORG Electribe ER-1
+
 #define midiIn 4
 #define midiOut 5
 
@@ -19,7 +22,7 @@
 #define micLoopStartPin 6
 #define micLoopStopPin 7
 #define micLoopTrigPin1 9
-#define micLoopTrigPin2 8
+#define reversePin 8 //external momentary in
 
 unsigned long lastTapFallTime;
 unsigned long tapFallTime;
@@ -54,7 +57,7 @@ Bounce forward = Bounce();
 Bounce back = Bounce();
 Bounce undo = Bounce();
 Bounce micLoopTrigIn1 = Bounce();
-Bounce micLoopTrigIn2 = Bounce();
+Bounce reverse = Bounce();
 
 bool playing;
 SoftwareSerial midiSerial(midiIn, midiOut);
@@ -107,8 +110,8 @@ void setup() {
   micLoopTrigIn1.attach(micLoopTrigPin1, INPUT_PULLUP);
   micLoopTrigIn1.interval(debounceInterval);
 
-  micLoopTrigIn2.attach(micLoopTrigPin2, INPUT_PULLUP);
-  micLoopTrigIn2.interval(debounceInterval);
+  reverse.attach(reversePin, INPUT_PULLUP);
+  reverse.interval(debounceInterval);
 
   parts = 8;
   lastParts = 8;
@@ -187,10 +190,8 @@ void loop() {
         bankAndPatternByte++;
         bankBit = bankAndPatternByte>>7;
         patternByte = bankAndPatternByte & 127;
-        write3(0xB9, 0, 0);
-        write3(0xB9, 0x20, bankBit);
-        write2(0xC9, patternByte);
-        parts = 8;
+        sendPatternChange(bankBit, patternByte);
+        parts = 8;//set drums to high energy
         }
       else {}
 
@@ -199,10 +200,8 @@ void loop() {
         bankAndPatternByte--;
         bankBit = bankAndPatternByte>>7;
         patternByte = bankAndPatternByte & 127;
-        write3(0xB9, 0, 0);
-        write3(0xB9, 0x20, bankBit);
-        write2(0xC9, patternByte);
-        parts = 8;
+        sendPatternChange(bankBit, patternByte);
+        parts = 8; //set drums to high energy
         }
        undo.update();
        if ( undo.fell() ){
@@ -210,15 +209,15 @@ void loop() {
         }
        else {}
 
+       reverse.update();
+       if (reverse.fell()){
+        write3(0xBF, 78, 127);
+        }
+
        micLoopTrigIn1.update();
        if ( micLoopTrigIn1.fell() ){
         micLoopStartRequest = true;
         }
-        
-       micLoopTrigIn2.update();
-       if ( micLoopTrigIn2.fell() ){
-        //micLoopShortRequest = true;
-       }
 
         expPedal = analogRead(A7);
         if(expPedal<120){
@@ -266,3 +265,9 @@ void partsUpdate(byte byte1, byte byte2){
   write3(0xB9, 0x62, 0x6E);
   write3(0xB9, 0x06, byte2);
 }
+
+void sendPatternChange(byte bankBit, byte patternByte){
+  write3(0xB9, 0, 0);
+  write3(0xB9, 0x20, bankBit);
+  write2(0xC9, patternByte);
+  }

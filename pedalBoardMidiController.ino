@@ -2,9 +2,6 @@
 #include <SoftwareSerial.h>
 #include <Bounce2.h>
 
-#define VOLCASAMPLE false; //make this true if you're using the KORG Volca Sample with Pajen unofficial firmware (tested with beta7)
-#define ELECTRIBE true; //make this true if you're using the KORG Electribe ER-1
-
 #define midiIn 4
 #define midiOut 5
 
@@ -47,6 +44,11 @@ unsigned long nextPulse;
 byte bankAndPatternByte;
 byte bankBit;
 byte patternByte;
+
+bool VOLCA; //make this true (1) if you're using the KORG Volca Sample with Pajen unofficial firmware (tested with beta7) and false (0) if not
+bool ER1; //make this true (1) if you're using the KORG Electribe ER-1 and false (0) if not
+
+//part 10 is closed highhat on Volca sample. 10 chokes 9 if both samples are played simultaneously, 9 can choke 10 if played subsequently
 
 #define debounceInterval 25
 
@@ -104,8 +106,17 @@ void setup() {
   micLoopTrigIn.attach(micLoopTriggerPin, INPUT_PULLUP);
   micLoopTrigIn.interval(debounceInterval);
 
-  parts = 8;
-  lastParts = 8;
+  VOLCA = true; //make this true if you're using the KORG Volca Sample with Pajen unofficial firmware (tested with beta7) and false if not
+  ER1 = false; //make this true if you're using the KORG Electribe ER-1 and false if not
+  
+  if(ER1){
+    parts = 8;
+    lastParts = 8;}
+  else if (VOLCA){
+    parts = 10;
+    lastParts = 10;
+    }
+  else{}
 }
 
 void loop() {
@@ -158,8 +169,8 @@ void loop() {
         currentBeat++;
         if (currentBeat == 4){
           currentBeat = 0;
-          }
-        }
+          }else{}
+        }else{}
     }
 
     play.update();
@@ -172,28 +183,28 @@ void loop() {
         currentBeat = 0;
         midiSerial.write(0xFA);//send start
         }
-        playing = !playing;
+        playing = !playing;//toggle playing state
       }
       else{}
 
       forward.update();
-      if ( forward.fell() ){
+      if ( forward.fell() && ER1 ){
         bankAndPatternByte++;
         bankBit = bankAndPatternByte>>7;
         patternByte = bankAndPatternByte & 127;
         sendPatternChange(bankBit, patternByte);
         parts = 8;//set drums to high energy
-        }
-      else {}
+        } 
+        else {}
 
       back.update();
-      if ( back.fell() ){
+      if ( back.fell() && ER1 ){
         bankAndPatternByte--;
         bankBit = bankAndPatternByte>>7;
         patternByte = bankAndPatternByte & 127;
         sendPatternChange(bankBit, patternByte);
         parts = 8; //set drums to high energy
-        }else {}
+        } else {}
 
        micLoopTrigIn.update();
        if ( micLoopTrigIn.fell() ){
@@ -201,29 +212,45 @@ void loop() {
         }
 
         expPedal = analogRead(A7);
-        if(expPedal<120){
-          parts = 8;//High energy     
+        if(expPedal<120){//High energy
+          if (ER1){parts = 8;}  
+          else if (VOLCA){parts = 9;} 
           }
         else if (expPedal>900){
-          parts = 2;//Low energy
+          if (ER1){parts = 2;}//Low energy
+          else if (VOLCA){parts = 3;}
           }
-        else {
-          parts = 4;//Medium energy
+        else {//Medium energy
+          if (ER1){parts = 4;}
+          else if (VOLCA){parts = 5;}
           }
 
         if(parts != lastParts){
-          lastParts = parts;
-          switch(parts){
-            case 2:
-              partsUpdate(0x0E, 0x37);
-              break;
-            case 4:
-              partsUpdate(0x06, 0x36);
-              break;
-            case 8:
-              partsUpdate(0x00, 0x00);
-              break;
+          if (ER1){       
+            lastParts = parts;
+            switch(parts){
+              case 2:
+                partsUpdate(0x0E, 0x37);
+                break;
+              case 4:
+                partsUpdate(0x06, 0x36);
+                break;
+              case 8:
+                partsUpdate(0x00, 0x00);
+                break;
+              }
           }
+          else if (VOLCA){
+            if (lastParts > parts){
+              volcaUpdate(lastParts, 0);//mute
+              lastParts--;
+              }
+            else if (lastParts < parts){
+              volcaUpdate(lastParts + 1, 1);//unmute
+              lastParts++;
+              }
+            else{}
+            }
         }
 }
 
@@ -246,6 +273,10 @@ void partsUpdate(byte byte1, byte byte2){
   write3(0xB9, 0x62, 0x6E);
   write3(0xB9, 0x06, byte2);
 }
+
+void volcaUpdate(byte channel, byte muteByte){
+  write3((0xB0 + channel), 58, muteByte);
+  }
 
 void sendPatternChange(byte bankBit, byte patternByte){
   write3(0xB9, 0, 0);
